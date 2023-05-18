@@ -184,6 +184,9 @@ def plot_car(x, y, yaw, length, steer=0.0, cabcolor="-r", truckcolor="-k"):  # p
 
 
 def main():
+    """
+    Iterate over all start angles(16)
+    """
     with open('mp.pkl', 'rb') as file:
         mpls = pickle.load(file)
     xlss = mpls[0]
@@ -231,6 +234,8 @@ def main():
             fout.write('startjointangle_c: %d\n' % (0))
             each_angle_path = []
             # print("xlss size: ", len(xlss), len(ylss), len(yawlss), len(yawtlss))
+            
+            # Rotation and fit to resolution
             for x, y, yaw, yawt in zip(xlss[primind], ylss[primind], yawlss[primind], yawtlss[primind]):
                 inter_coord = r.apply([x, y, 0])
                 yaw += current_angle
@@ -261,6 +266,7 @@ def main():
             # else:
             multcost = 2
 
+            # Set straight mp cost to 1
             if primind == 0 or primind == 1 or primind == 6 or primind == 7:
                 multcost = 1
             

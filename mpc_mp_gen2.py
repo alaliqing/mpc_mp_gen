@@ -62,6 +62,9 @@ def get_nparray_from_matrix(x):
     return np.array(x).flatten()
 
 def predict_motion_mpc(x, u):
+    """
+    Predict motion for forward model.
+    """
     x1 = x
     x1[0] = x[0] + u[0] * cos(x[2]) * DT
     x1[1] = x[1] + u[0] * sin(x[2]) * DT
@@ -70,6 +73,9 @@ def predict_motion_mpc(x, u):
     return x1
 
 def predict_motion_mpc_1(x, u):
+    """"
+    Predict motion for backward model
+    """
     x1 = x
     x1[0] = x[0] + u[0] * cos(x[2] - x[3]) * cos(x[3]) * DT
     x1[1] = x[1] + u[0] * cos(x[2] - x[3]) * sin(x[3]) * DT
@@ -78,6 +84,9 @@ def predict_motion_mpc_1(x, u):
     return x1
 
 def interpose(xls, yls, yawls, yawtls, lengthls):
+    """
+    Interpolate into 10 states based on path length.
+    """
     arc = lengthls[-1] / 9
     if lengthls[-1] < 0:
         lengthls.reverse()
@@ -112,6 +121,9 @@ def rectangle_vertex(x, y, a, b, yaw1, color):
     return rect
 
 def draw_rotated_box(x, y, yaw1, yawt, color, width=0.04, height=0.02):
+    """
+    Plot tractor and trailer.
+    """
     margin = 20
     import numpy as np
     a = LENGTH # length
@@ -195,6 +207,10 @@ def plot_car(x, y, yaw, length, width, steer=0.0, cabcolor="-r", truckcolor="-k"
 
 def mpc_solver(start, goal, direction):
 
+    """
+    Solve MPC problem, direction: -1 backwards, 1 forwards.
+    """
+
     xref = np.empty((NX,2))
     for i in range(NX):
         xref[i,0] = start[i]
@@ -271,6 +287,9 @@ def mpc_solver(start, goal, direction):
     return ox, oy, oyaw, oyawt, ov, odyaw
 
 def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, direction):
+    """
+    Iterately solve MPC problems to calculate path from start to goal.
+    """
     fig, ax = plt.subplots()
     motion_primitive = np.empty((0,4))
     init_state = start.copy()
@@ -300,6 +319,8 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
         # if (init_state[3] == 0 and goal[3] == 0 and fabs(current_state[0] - goal[0]) < 0.01 and fabs(current_state[1] - goal[1]) < 0.01) or ((init_state[3] != 0 or goal[3] != 0) and fabs(current_state[2] - goal[2]) < 0.01 and fabs(current_state[3] - goal[3]) < 0.01):
         print(fabs(current_state[2] - goal[2]), fabs(current_state[3] - goal[3]))
         if fabs(current_state[2] - goal[2]) < RES and fabs(current_state[3] - goal[3]) < RES:
+            
+            # Condition 1 for straight path, condition 2 for curve path.
             if goal[2] == 0 and start[3] == 0:
                 if fabs(current_state[0] - goal[0]) < 0.01 and fabs(current_state[1] - goal[1]) < 0.01:
                     print("satisfied stop condition 1")
@@ -338,6 +359,8 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
     print("Goal: ", goal)
 
     xlsn, ylsn, yawlsn, yawtlsn = interpose(xlsn, ylsn, yawlsn, yawtlsn, lengthls)
+
+    # Adjust final position to fit resolution.
     xlsn[-1] = round(xlsn[-1] / RES) * RES
     ylsn[-1] = round(ylsn[-1] / RES) * RES
     yawlsn[-1] = goal[2]
@@ -378,6 +401,7 @@ def main():
     #                [0, 0, 0, np.deg2rad(22.5)],
     #                [0, 0, 0, np.deg2rad(45)]]
     
+    # Forwards goal states
     goal_state = [[0.3, 0, 0, 0], # possible: downsampling Jing 17.05.2023
                   [0.45, 0, 0, 0],
                   [2, 0, np.deg2rad(90), np.deg2rad(90)],
@@ -393,10 +417,12 @@ def main():
     #               [2, 0, np.deg2rad(45), np.deg2rad(22.5)],
     #               [2, 0, np.deg2rad(22.5), np.deg2rad(0)]]
     
+    # Calculate end pose angle index
     cal_goal_ind = []
     for goal in goal_state:
         cal_goal_ind.append(int(np.rad2deg(goal[2])/22.5))
 
+    # This subls include all mps of one start state.
     subxlss = []
     subylss = []
     subyawlss = []
@@ -418,10 +444,9 @@ def main():
     # for i in range(4):
     #     start_state1[0][i+16][0], start_state1[0][i+16][1], start_state1[0][i+16][2], start_state1[0][i+16][3] = -start_state1[0][i+16][0] - 0.3, start_state1[0][i+16][1], -start_state1[0][i+16][2], -start_state1[0][i+16][3]
     
+    # Backwards goal states goal_state1
     for i in range(6):
         goal_state1[i][0], goal_state1[i][1], goal_state1[i][2], goal_state1[i][3] = -goal_state1[i][0], goal_state1[i][1], -goal_state1[i][2], -goal_state1[i][3]
-
-    # del goal_state1[0][:3]
 
     for goal_b in goal_state1:
         angle_ind = int(np.rad2deg(goal_b[2])/22.5)
@@ -429,7 +454,6 @@ def main():
             angle_ind += 16
         cal_goal_ind.append(angle_ind)
 
-    # for startset, goal in zip(start_state1, goal_state1):
     for start in start_state:
         # fig, ax = plt.subplots()
         ind = 0
@@ -437,7 +461,8 @@ def main():
         for goal in goal_state1:
             mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, direction)
             ind += 1
-        
+    
+    # Add motion primitives in Quadrants 3 and 4
     subxlss_2 = subxlss[2:6]
     subylss_2 = subylss[2:6]
     subyawlss_2 = subyawlss[2:6]
@@ -466,7 +491,8 @@ def main():
     # plt.legend()
     # plt.axis('equal')
     # plt.show()
-    i = 1
+    
+    #  Save generated motion primitives to file mp.pkl.
     with open('mp.pkl', 'wb') as file:
         pickle.dump(mpls, file)
 
