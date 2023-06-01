@@ -36,25 +36,25 @@ DU_TH = 0.3  # 0.1  # iteration finish param
 DT = 0.2  # [s] time tick 0.1 for 45degree
 
 # Vehicle parameters
-LENGTH = 1.12 # 0.72   # [m]
-LENGTH_T = 1.14 #0.36  # [m]
+LENGTH = 0.975 # 0.72   # [m]
+LENGTH_T = 1.40 #0.36  # [m]
 WIDTH = 0.745 # 0.48  # [m]
-WIDTH_T = 1.18
-BACKTOWHEEL = 0.36  # [m]
+WIDTH_T = 1.06
+BACKTOWHEEL = 0.4875  # [m]
 WHEEL_LEN = 0.1  # [m]
 WHEEL_WIDTH = 0.07  # [m]
 TREAD = 0.2  # [m]
 WB = 0.3  # [m]
-ROD_LEN = 1.55 #0.5 # [m]
+ROD_LEN = 1.2 #0.5 # [m]
 CP_OFFSET = 0 # 0.1   # [m]
 
 RES = 0.03
 
-MAX_OMEGA = 2 # maximum rotation speed [rad/s]
+MAX_OMEGA = 5 # maximum rotation speed [rad/s]
 
 MAX_SPEED = 2.5  # 55.0 / 3.6  # maximum speed [m/s]
 MIN_SPEED = 0.0  # minimum speed [m/s]
-JACKKNIFE_CON = 45.0  # [degrees]
+JACKKNIFE_CON = 90.0  # [degrees]
 
 CIR_RAD = 5  # radius of circular path [m]
 
@@ -128,7 +128,8 @@ def draw_rotated_box(x, y, yaw1, yawt, color, width=0.04, height=0.02):
     import numpy as np
     a = LENGTH # length
     b = WIDTH # width
-    c = a/2 # length2
+    c = CP_OFFSET
+    d = ROD_LEN
 
     yaw1rad = np.deg2rad(yaw1)
     yawtrad = np.deg2rad(yawt)
@@ -136,8 +137,8 @@ def draw_rotated_box(x, y, yaw1, yawt, color, width=0.04, height=0.02):
     plot_car(x, y, yaw1rad, LENGTH, WIDTH)
 
     # for tractor
-    plot_car(x - np.cos(yawtrad) * c - np.cos(yaw1rad) * c,
-                y - np.sin(yawtrad) * c - np.sin(yaw1rad) * c, yawtrad, LENGTH_T, WIDTH_T, truckcolor="-r")
+    plot_car(x - np.cos(yawtrad) * d - np.cos(yaw1rad) * c,
+                y - np.sin(yawtrad) * d - np.sin(yaw1rad) * c, yawtrad, LENGTH_T, WIDTH_T, truckcolor="-r")
 
     # x1 = x - c * cos(yaw1rad) - c * cos(yawtrad)
     # y1 = y - c * sin(yaw1rad) - c * sin(yawtrad)
@@ -205,7 +206,7 @@ def plot_car(x, y, yaw, length, width, steer=0.0, cabcolor="-r", truckcolor="-k"
     # plt.plot(x, y, "*")
 
 
-def mpc_solver(start, goal, direction):
+def mpc_solver(start, goal, direction, ind):
 
     """
     Solve MPC problem, direction: -1 backwards, 1 forwards.
@@ -238,6 +239,7 @@ def mpc_solver(start, goal, direction):
     obj += (p[:, 1] - x[:, T]).T @ Q @ (p[:, 1] - x[:, T])
     
     for t in range(T):
+        # if ind != 2:
         opti.subject_to(fabs(x[3, t] - x[2, t]) <= np.deg2rad(JACKKNIFE_CON))
         # opti.subject_to(u[0, t + 1] * u[0, t] > 0)
 
@@ -261,7 +263,8 @@ def mpc_solver(start, goal, direction):
     # opti.subject_to(x[0, T] == goal[0])
     # opti.subject_to(x[1, T] == goal[1])
     opti.subject_to(x[2, T] == goal[2])
-    opti.subject_to(x[3, T] == goal[3])
+    if ind != 2:
+        opti.subject_to(x[3, T] == goal[3])
     opti.subject_to(fabs(u[0, :]) <= MAX_SPEED)
     if direction == -1:
         opti.subject_to(u[0, :] <= MIN_SPEED)
@@ -301,7 +304,7 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
     ite = 0
     while ite < MAX_ITER:
         try:
-            ox, oy, oyaw, oyawt, ov, odyaw = mpc_solver(current_state, goal, direction)
+            ox, oy, oyaw, oyawt, ov, odyaw = mpc_solver(current_state, goal, direction, ind)
         except:
             print("Can not solve this mpc problem!")
             break
@@ -317,7 +320,7 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
         lengthls.append(length)
         ite += 1
         # if (init_state[3] == 0 and goal[3] == 0 and fabs(current_state[0] - goal[0]) < 0.01 and fabs(current_state[1] - goal[1]) < 0.01) or ((init_state[3] != 0 or goal[3] != 0) and fabs(current_state[2] - goal[2]) < 0.01 and fabs(current_state[3] - goal[3]) < 0.01):
-        print(fabs(current_state[2] - goal[2]), fabs(current_state[3] - goal[3]))
+        # print(fabs(current_state[2] - goal[2]), fabs(current_state[3] - goal[3]))
         if fabs(current_state[2] - goal[2]) < RES and fabs(current_state[3] - goal[3]) < RES:
             
             # Condition 1 for straight path, condition 2 for curve path.
@@ -347,7 +350,9 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
                 # ite += 1
                 print("satisfied stop condition 2")
                 break
-        
+        if ind == 2 and fabs(current_state[2] - goal[2]) < RES:
+            print("satisfied stop condition 3")
+            break
 
     xlsn = [i[0] for i in motion_primitive]
     ylsn = [i[1] for i in motion_primitive]
@@ -358,13 +363,13 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
     print("Iteration ", ite)
     print("Goal: ", goal)
 
-    xlsn, ylsn, yawlsn, yawtlsn = interpose(xlsn, ylsn, yawlsn, yawtlsn, lengthls)
+    # xlsn, ylsn, yawlsn, yawtlsn = interpose(xlsn, ylsn, yawlsn, yawtlsn, lengthls)
 
     # Adjust final position to fit resolution.
     xlsn[-1] = round(xlsn[-1] / RES) * RES
     ylsn[-1] = round(ylsn[-1] / RES) * RES
     yawlsn[-1] = goal[2]
-    yawtlsn[-1] = goal[3]
+    # yawtlsn[-1] = goal[3]
 
     # if direction == -1:
     #     xlsn.reverse()
@@ -394,6 +399,7 @@ def mp_generator(start, goal, subxlss, subylss, subyawlss, subyawtlss, ind, dire
     
 def main():
     start_state = [[0, 0, 0, 0]]
+    # start_state = [[0, 0, np.deg2rad(90), 0]]
 
     # start_state = [[0, 0, 0, np.deg2rad(-45)],
     #                [0, 0, 0, np.deg2rad(-22.5)],
@@ -404,10 +410,13 @@ def main():
     # Forwards goal states
     goal_state = [[0.3, 0, 0, 0], # possible: downsampling Jing 17.05.2023
                   [0.45, 0, 0, 0],
+                  [0, 0, np.deg2rad(180), np.deg2rad(130)],
                   [2, 0, np.deg2rad(90), np.deg2rad(90)],
                   [2, 0, np.deg2rad(67.5), np.deg2rad(67.5)],
                   [2, 0, np.deg2rad(45), np.deg2rad(45)],
                   [2, 0, np.deg2rad(22.5), np.deg2rad(22.5)]]
+    
+    # goal_state = [[0, 0, np.deg2rad(180), np.deg2rad(0)]]
     
     # goal_state = [[0.15, 0, 0, 0],
     #               [0.3, 0, 0, 0],
@@ -445,7 +454,7 @@ def main():
     #     start_state1[0][i+16][0], start_state1[0][i+16][1], start_state1[0][i+16][2], start_state1[0][i+16][3] = -start_state1[0][i+16][0] - 0.3, start_state1[0][i+16][1], -start_state1[0][i+16][2], -start_state1[0][i+16][3]
     
     # Backwards goal states goal_state1
-    for i in range(6):
+    for i in range(7):
         goal_state1[i][0], goal_state1[i][1], goal_state1[i][2], goal_state1[i][3] = -goal_state1[i][0], goal_state1[i][1], -goal_state1[i][2], -goal_state1[i][3]
 
     for goal_b in goal_state1:
@@ -463,15 +472,15 @@ def main():
             ind += 1
     
     # Add motion primitives in Quadrants 3 and 4
-    subxlss_2 = subxlss[2:6]
-    subylss_2 = subylss[2:6]
-    subyawlss_2 = subyawlss[2:6]
-    subyawtlss_2 = subyawtlss[2:6]
+    subxlss_2 = subxlss[2:7]
+    subylss_2 = subylss[2:7]
+    subyawlss_2 = subyawlss[2:7]
+    subyawtlss_2 = subyawtlss[2:7]
 
-    subxlss_3 = subxlss[8:]
-    subylss_3 = subylss[8:]
-    subyawlss_3 = subyawlss[8:]
-    subyawtlss_3 = subyawtlss[8:]
+    subxlss_3 = subxlss[9:]
+    subylss_3 = subylss[9:]
+    subyawlss_3 = subyawlss[9:]
+    subyawtlss_3 = subyawtlss[9:]
 
     for xls, yls, yawls, yawtls in zip(subxlss_2, subylss_2, subyawlss_2, subyawtlss_2):
         subxlss.append([x for x in xls])

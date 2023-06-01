@@ -195,7 +195,7 @@ def main():
     yawtlss = mpls[3]
     # # Start to calculate other directions
     numberofangles = 16
-    numberofprimsperangle = 20
+    numberofprimsperangle = 24
     numberofjointangles = 1
 
     # Multipliers
@@ -219,8 +219,8 @@ def main():
     #                12, 12, 12, 13, 13, 13, 12, 12, 12, 12, 13, 13, 13, 0, 0, 15, 15,
     #                4, 4, 4, 3, 3, 3, 4, 4, 4, 4, 3, 3, 3, 0, 0, 1, 1]
 
-    goal_angles= [0, 0, 4, 3, 2, 1, 0, 0, 12, 13, 14, 15,
-                  12, 13, 14, 15, 4, 3, 2, 1]
+    goal_angles= [0, 0, 8, 4, 3, 2, 1, 0, 0, 8, 12, 13, 14, 15,
+                  8, 12, 13, 14, 15, 8, 4, 3, 2, 1]
 
     for angleind in range(numberofangles):
         current_angle = (angleind) * 2 * math.pi / numberofangles
